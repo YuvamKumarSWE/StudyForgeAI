@@ -10,7 +10,6 @@ from app.services.youtubeTranscript import process_videos_batch
 from app.services.textProcessing import process_text_inputs_batch
 from app.services.gemini import generate_study_guide_from_text
 from app.utils.logger import setup_logger
-from app.models.schemas import PasswordRequest, PasswordResponse
 
 # Load environment variables
 load_dotenv()
