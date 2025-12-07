@@ -3,9 +3,9 @@ import json
 
 url = "http://localhost:8000/api/get-output"
 
-files = [
-    ('pdfs', ('python/app/sample.pdf', open('python/app/sample.pdf', 'rb'), 'application/pdf'))
-]
+# files = [
+#     ('pdfs', ('python/app/sample.pdf', open('python/app/sample.pdf', 'rb'), 'application/pdf'))
+# ]
 
 payload = {
     "urls": ["https://www.tie-a-tie.net/fourinhand/"],
@@ -17,7 +17,7 @@ data = {
     "sources": json.dumps(payload)
 }
 
-response = requests.post(url, files=files, data=data)
+response = requests.post(url, data=data)
 
 print(response.status_code)
 print(response.json())

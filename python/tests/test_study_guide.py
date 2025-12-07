@@ -1,8 +1,14 @@
 """
 Test script for the study guide generation functionality
 """
+import sys
+import os
 import json
-from services.gemini import extract_unique_topics_with_text, make_study_guide, format_study_guide_as_markdown
+
+# Add the parent directory to sys.path so 'app' can be imported
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.services.gemini import extract_unique_topics_with_text, make_study_guide, format_study_guide_as_markdown
 
 
 def test_with_sample_text():
@@ -46,7 +52,7 @@ def test_with_sample_text():
     print("STEP 2: Generating Study Guide")
     print("=" * 80)
 
-    # Generate study guide with all features
+    # Generate a study guide with all features
     study_guide = make_study_guide(
         topics_data=topics_data,
         include_summary=True,
@@ -66,7 +72,7 @@ def test_with_sample_text():
     print("STEP 4: Markdown Formatted Study Guide")
     print("=" * 80)
 
-    # Format as markdown
+    # Format as Markdown
     markdown_guide = format_study_guide_as_markdown(study_guide)
     print(markdown_guide)
 
@@ -123,7 +129,7 @@ if __name__ == "__main__":
     print("Testing Study Guide Generation\n")
 
     try:
-        # Test 1: Full featured guide with sample text
+        # Test 1: Full-featured guide with sample text
         test_with_sample_text()
 
         # Test 2: Short text (concise guide)
@@ -140,4 +146,3 @@ if __name__ == "__main__":
         print(f"\n❌ Error during testing: {str(e)}")
         import traceback
         traceback.print_exc()
-
