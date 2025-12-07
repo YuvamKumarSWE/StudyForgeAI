@@ -1,65 +1,11 @@
-import os
 import json
 import time
-import re
-from dotenv import load_dotenv
 from google import genai
-from pathlib import Path
 from app.utils.logger import setup_logger
+from app.utils.llm_utils import get_gemini_api_key
+from app.utils.llm_utils import rate_limiting
 
 logger = setup_logger(__name__)
-project_root = Path(__file__).resolve().parents[2]
-
-# Global rate limiting - minimum time between API calls
-_last_api_call = 0
-_min_delay_between_calls = 2.0  # 2 seconds between calls
-
-def _get_api_key(provided_key=None):
-    """Get the Gemini API key from provided parameter or environment variables."""
-    try:
-        # Use provided key if available
-        if provided_key and isinstance(provided_key, str) and provided_key.strip():
-            logger.debug("Using user-provided API key")
-            return provided_key.strip()
-        
-        # Fall back to environment variable
-        load_dotenv(dotenv_path=project_root / ".env")
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            logger.error("GEMINI_API_KEY not found in environment variables")
-            raise ValueError("GEMINI_API_KEY not found in environment variables!")
-        logger.debug("Successfully retrieved GEMINI_API_KEY from environment")
-        return api_key
-    except Exception as e:
-        logger.error(f"Error loading API key: {str(e)}")
-        raise
-
-def _extract_retry_delay(error_message):
-    """Extract retry delay from API error message."""
-    try:
-        # Look for patterns like "Please retry in 43.284182141 s" or "retryDelay: 43 s"
-        match = re.search(r'retry in ([0-9.]+)s', str(error_message))
-        if match:
-            return float(match.group(1))
-        match = re.search(r'retryDelay["\']?:\s*["\']?([0-9]+)s', str(error_message))
-        if match:
-            return float(match.group(1))
-    except:
-        pass
-    return None
-
-def _rate_limit():
-    """Enforce a minimum delay between API calls."""
-    global _last_api_call
-    current_time = time.time()
-    time_since_last_call = current_time - _last_api_call
-    
-    if time_since_last_call < _min_delay_between_calls:
-        sleep_time = _min_delay_between_calls - time_since_last_call
-        logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
-        time.sleep(sleep_time)
-    
-    _last_api_call = time.time()
 
 def _call_gemini_with_retry(client, model, prompt, max_retries=5, initial_delay=3):
     """
@@ -81,7 +27,7 @@ def _call_gemini_with_retry(client, model, prompt, max_retries=5, initial_delay=
     for attempt in range(max_retries):
         try:
             # Enforce rate limiting between calls
-            _rate_limit()
+            rate_limiting()
             
             logger.debug(f"Gemini API call attempt {attempt + 1}/{max_retries}")
             response = client.models.generate_content(
@@ -104,30 +50,6 @@ def _call_gemini_with_retry(client, model, prompt, max_retries=5, initial_delay=
                     
         except Exception as e:
             error_str = str(e)
-            
-            # Check if this is a rate limit error (429)
-            if '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str or 'quota' in error_str.lower():
-                # Extract the retry delay from the error message
-                retry_delay = _extract_retry_delay(error_str)
-                
-                if retry_delay and attempt < max_retries - 1:
-                    # Add a small buffer to the suggested delay
-                    wait_time = retry_delay + 2
-                    logger.warning(f"Rate limit hit (429). Waiting {wait_time:.1f}s as suggested by API (attempt {attempt + 1}/{max_retries})")
-                    time.sleep(wait_time)
-                    continue
-                elif attempt < max_retries - 1:
-                    # Use exponential backoff if we can't extract delay
-                    delay = initial_delay * (2 ** attempt)
-                    wait_time = max(delay, 45)  # Wait at least 45 seconds for rate limits
-                    logger.warning(f"Rate limit hit (429). Waiting {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    logger.error(f"Rate limit exceeded after all retries: {error_str}")
-                    raise ValueError("API rate limit exceeded. Please wait a few minutes and try again with less content or fewer sources.")
-            
-            # For non-rate-limit errors
             logger.error(f"Gemini API error on attempt {attempt + 1}: {error_str}")
             if attempt < max_retries - 1:
                 delay = initial_delay * (2 ** attempt)
@@ -139,7 +61,7 @@ def _call_gemini_with_retry(client, model, prompt, max_retries=5, initial_delay=
     
     raise Exception("Failed to get valid response from Gemini API")
 
-def extract_unique_topics_with_text(text, api_key=None):
+def extract_unique_topics_with_text(text):
     """
     Extract main topics from large text using the Gemini 2.5-pro model.
     Returns a JSON object where each topic maps to its unique corresponding text.
@@ -147,7 +69,6 @@ def extract_unique_topics_with_text(text, api_key=None):
 
     Args:
         text (str): The large text to process
-        api_key (str, optional): User-provided API key, uses environment key if not provided
 
     Returns:
         dict: JSON object with topics as keys and unique text snippets as values
@@ -167,26 +88,26 @@ def extract_unique_topics_with_text(text, api_key=None):
     
     prompt = f"""You are a study guide assistant specialized in content deduplication and topic extraction.
 
-Analyze the following text and:
-1. Identify all main topics covered
-2. Extract ALL unique text content related to each topic (be comprehensive)
-3. Remove ONLY exact duplicates or near-identical phrases
-4. Keep different explanations of the same concept if they provide unique value
-5. Consolidate related information under the most appropriate topic
-
-Return ONLY a valid JSON object where:
-- Keys are the main topics (clear, concise topic names)
-- Values are the consolidated unique text content (combine related sentences, avoid redundancy)
-
-TEXT TO ANALYZE:
-{text}
-
-Return ONLY the JSON object, no other text."""
+        Analyze the following text and:
+        1. Identify all main topics covered
+        2. Extract ALL unique text content related to each topic (be comprehensive)
+        3. Remove ONLY exact duplicates or near-identical phrases
+        4. Keep different explanations of the same concept if they provide unique value
+        5. Consolidate related information under the most appropriate topic
+        
+        Return ONLY a valid JSON object where:
+        - Keys are the main topics (clear, concise topic names)
+        - Values are the consolidated unique text content (combine related sentences, avoid redundancy)
+        
+        TEXT TO ANALYZE:
+        {text}
+        
+        Return ONLY the JSON object, no other text."""
 
     try:
         logger.debug("Initializing Gemini API client for topic extraction")
-        client = genai.Client(api_key=_get_api_key(api_key))
-        
+        client = genai.Client(api_key=get_gemini_api_key())
+
         logger.info("Sending request to Gemini API for topic extraction")
         response = _call_gemini_with_retry(
             client=client,
@@ -230,7 +151,7 @@ Return ONLY the JSON object, no other text."""
         logger.error(f"Unexpected error during topic extraction: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to extract topics: {str(e)}")
 
-def make_study_guide(topics_data, include_summary=True, include_key_points=True, api_key=None):
+def make_study_guide(topics_data, include_summary=True, include_key_points=True):
     """
     Generate a comprehensive study guide from topic data using a SINGLE API call.
 
@@ -238,7 +159,6 @@ def make_study_guide(topics_data, include_summary=True, include_key_points=True,
         topics_data (dict): Dictionary with topics as keys and content as values
         include_summary (bool): Whether to generate a summary for each topic
         include_key_points (bool): Whether to extract key points for each topic
-        api_key (str, optional): User-provided API key, uses environment key if not provided
 
     Returns:
         dict: A structured study guide with formatted content
@@ -258,7 +178,7 @@ def make_study_guide(topics_data, include_summary=True, include_key_points=True,
 
     try:
         logger.debug("Initializing Gemini API client for study guide generation")
-        client = genai.Client(api_key=_get_api_key(api_key))
+        client = genai.Client(api_key=get_gemini_api_key())
 
         # Determine the depth and complexity of the guide based on content length
         total_content_length = sum(len(str(content)) for content in topics_data.values())
@@ -340,7 +260,6 @@ Return ONLY the JSON object, no markdown code blocks or additional text."""
                 study_guide_data = json.loads(response_text)
             except json.JSONDecodeError:
                 logger.warning("Failed to parse JSON directly, attempting to extract from markdown code blocks")
-                # Try extracting from markdown code blocks
                 if "```json" in response_text:
                     json_str = response_text.split("```json")[1].split("```")[0].strip()
                     study_guide_data = json.loads(json_str)
@@ -375,15 +294,14 @@ Return ONLY the JSON object, no markdown code blocks or additional text."""
         raise ValueError(f"Failed to generate study guide: {str(e)}")
 
 
-def generate_study_guide_from_text(combined_text: str, request_id: str, api_key: str = None):
+def generate_study_guide_from_text(combined_text: str, request_id: str):
     """
     Generate a study guide from combined text content.
     
     Args:
         combined_text: Combined text content from all sources
         request_id: Request ID for logging
-        api_key: Optional Gemini API key
-        
+
     Returns:
         Formatted study guide markdown string
         
@@ -398,7 +316,7 @@ def generate_study_guide_from_text(combined_text: str, request_id: str, api_key:
     # Extract topics
     try:
         logger.info(f"[Request {request_id}] Extracting topics from combined content")
-        topics_data = extract_unique_topics_with_text(combined_text, api_key=api_key)
+        topics_data = extract_unique_topics_with_text(combined_text)
         logger.info(f"[Request {request_id}] Successfully extracted topics")
     except Exception as e:
         logger.error(f"[Request {request_id}] Failed to extract topics: {str(e)}", exc_info=True)
@@ -410,8 +328,8 @@ def generate_study_guide_from_text(combined_text: str, request_id: str, api_key:
     # Generate study guide
     try:
         logger.info(f"[Request {request_id}] Generating study guide from topics")
-        guide = make_study_guide(topics_data, include_summary=True, include_key_points=True, api_key=api_key)
-        
+        guide = make_study_guide(topics_data, include_summary=True, include_key_points=True)
+
         if "error" in guide:
             logger.error(f"[Request {request_id}] Study guide generation returned error: {guide['error']}")
             raise HTTPException(status_code=500, detail=f"Failed to generate study guide: {guide['error']}")
@@ -426,7 +344,6 @@ def generate_study_guide_from_text(combined_text: str, request_id: str, api_key:
             detail=f"Failed to generate study guide: {str(e)}"
         )
     
-    # Format as markdown
     try:
         logger.info(f"[Request {request_id}] Formatting study guide as markdown")
         final_output_text = format_study_guide_as_markdown(guide)
