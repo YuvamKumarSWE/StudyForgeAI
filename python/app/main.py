@@ -11,12 +11,7 @@ app = FastAPI()
 
 # CORS configuration - use environment variable or fallback to localhost
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-origins = [
-    frontend_url,
-    "http://localhost:5173",  # Fallback Vite default port
-    "http://localhost:5174",  # Fallback alternative Vite port
-    "http://localhost:3000",  # Fallback alternative React port
-]
+origins = [frontend_url, "http://localhost:5173"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,10 +22,6 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the FastAPI application"}
 
 if __name__ == "__main__":
     import uvicorn

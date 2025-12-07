@@ -8,3 +8,5 @@ python-dotenv
 trafilatura
 google-genai
 requests
+langchain
+langgraph
