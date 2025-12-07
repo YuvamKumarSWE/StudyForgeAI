@@ -39,7 +39,6 @@ function Dashboard() {
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [apiKey, setApiKey] = useState('');
   const [videoOverlayClosed, setVideoOverlayClosed] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
@@ -86,9 +85,6 @@ function Dashboard() {
 
       formData.append('sources', JSON.stringify(otherSources));
 
-      if (apiKey && apiKey.trim()) {
-        formData.append('api_key', apiKey.trim());
-      }
 
       const response = await apiService.getOutput(formData);
 
@@ -147,25 +143,6 @@ function Dashboard() {
             <Typography variant="body1" sx={{ color: '#A1A1A1' }}>
               Manage your sources and generate study guides.
             </Typography>
-          </Box>
-
-          <Box sx={{ width: 300 }}>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Gemini API Key (Optional)"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                fontSize: '14px',
-                backgroundColor: '#111',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '6px',
-                color: '#EDEDED',
-                outline: 'none',
-              }}
-            />
           </Box>
         </Box>
 

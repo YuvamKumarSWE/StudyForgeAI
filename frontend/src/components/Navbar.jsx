@@ -111,7 +111,6 @@ function Navbar() {
                           bgcolor: 'primary.main',
                           color: '#fff',
                           fontSize: '0.9rem',
-                          borderRadius: 0, // Square avatar for grid look? Or maybe slightly rounded
                           borderRadius: '4px'
                         }}
                       >
