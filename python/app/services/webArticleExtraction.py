@@ -91,3 +91,37 @@ def extract_web_article(url):
     except Exception as e:
         logger.error(f"Unexpected error extracting web article from {url}: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to extract web article from {url}: {str(e)}")
+
+
+def process_urls_batch(urls, request_id: str):
+    """
+    Extract article content from multiple URLs.
+    
+    Args:
+        urls: List of URLs to process
+        request_id: Request ID for logging
+        
+    Returns:
+        Tuple of (combined_output, successful_count, failed_count)
+    """
+    from typing import List
+    
+    num_urls = len(urls)
+    logger.info(f"[Request {request_id}] Starting URL extraction ({num_urls} URLs)")
+    
+    combined_output = []
+    successful_sources = 0
+    failed_sources = 0
+    
+    for idx, url in enumerate(urls, 1):
+        try:
+            logger.info(f"[Request {request_id}] Processing URL {idx}/{num_urls}: {url}")
+            article = extract_web_article(url)
+            combined_output.append(article["text"])
+            successful_sources += 1
+            logger.info(f"[Request {request_id}] Successfully processed URL: {url}")
+        except Exception as e:
+            failed_sources += 1
+            logger.error(f"[Request {request_id}] Failed to process URL {url}: {str(e)}")
+    
+    return combined_output, successful_sources, failed_sources

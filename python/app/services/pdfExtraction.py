@@ -94,3 +94,38 @@ async def extract_pdf_text(pdf_file):
     except Exception as e:
         logger.error(f"Unexpected error extracting text from PDF {filename}: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to extract text from PDF: {str(e)}")
+
+
+async def process_pdfs_batch(pdfs, request_id: str):
+    """
+    Extract text content from multiple PDF files.
+    
+    Args:
+        pdfs: List of PDF files to process
+        request_id: Request ID for logging
+        
+    Returns:
+        Tuple of (combined_output, successful_count, failed_count)
+    """
+    from typing import List
+    from fastapi import UploadFile
+    
+    num_pdfs = len(pdfs)
+    logger.info(f"[Request {request_id}] Starting PDF extraction ({num_pdfs} files)")
+    
+    combined_output = []
+    successful_sources = 0
+    failed_sources = 0
+    
+    for idx, pdf in enumerate(pdfs, 1):
+        try:
+            logger.info(f"[Request {request_id}] Processing PDF {idx}/{num_pdfs}: {pdf.filename}")
+            content = await extract_pdf_text(pdf)
+            combined_output.append(content)
+            successful_sources += 1
+            logger.info(f"[Request {request_id}] Successfully processed PDF: {pdf.filename}")
+        except Exception as e:
+            failed_sources += 1
+            logger.error(f"[Request {request_id}] Failed to process PDF {pdf.filename}: {str(e)}")
+    
+    return combined_output, successful_sources, failed_sources

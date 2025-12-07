@@ -375,6 +375,78 @@ Return ONLY the JSON object, no markdown code blocks or additional text."""
         raise ValueError(f"Failed to generate study guide: {str(e)}")
 
 
+def generate_study_guide_from_text(combined_text: str, request_id: str, api_key: str = None):
+    """
+    Generate a study guide from combined text content.
+    
+    Args:
+        combined_text: Combined text content from all sources
+        request_id: Request ID for logging
+        api_key: Optional Gemini API key
+        
+    Returns:
+        Formatted study guide markdown string
+        
+    Raises:
+        Exception: If study guide generation fails (with detailed error messages)
+    """
+    from fastapi import HTTPException
+    
+    logger.info(f"[Request {request_id}] Starting final study guide generation")
+    logger.info(f"[Request {request_id}] Combined content length: {len(combined_text)} characters")
+    
+    # Extract topics
+    try:
+        logger.info(f"[Request {request_id}] Extracting topics from combined content")
+        topics_data = extract_unique_topics_with_text(combined_text, api_key=api_key)
+        logger.info(f"[Request {request_id}] Successfully extracted topics")
+    except Exception as e:
+        logger.error(f"[Request {request_id}] Failed to extract topics: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract topics from content: {str(e)}"
+        )
+    
+    # Generate study guide
+    try:
+        logger.info(f"[Request {request_id}] Generating study guide from topics")
+        guide = make_study_guide(topics_data, include_summary=True, include_key_points=True, api_key=api_key)
+        
+        if "error" in guide:
+            logger.error(f"[Request {request_id}] Study guide generation returned error: {guide['error']}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate study guide: {guide['error']}")
+        
+        logger.info(f"[Request {request_id}] Successfully generated study guide")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Request {request_id}] Failed to generate study guide: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate study guide: {str(e)}"
+        )
+    
+    # Format as markdown
+    try:
+        logger.info(f"[Request {request_id}] Formatting study guide as markdown")
+        final_output_text = format_study_guide_as_markdown(guide)
+        
+        if final_output_text.startswith("# Error"):
+            logger.error(f"[Request {request_id}] Markdown formatting returned error")
+            raise HTTPException(status_code=500, detail="Failed to format study guide as markdown")
+        
+        logger.info(f"[Request {request_id}] Successfully formatted study guide as markdown")
+        return final_output_text
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Request {request_id}] Failed to format markdown: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to format study guide as markdown: {str(e)}"
+        )
+
+
 def format_study_guide_as_markdown(study_guide):
     """
     Format the study guide as a readable Markdown document.

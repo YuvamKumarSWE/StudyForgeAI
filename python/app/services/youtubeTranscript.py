@@ -162,3 +162,37 @@ def get_youtube_transcript(
     except Exception as e:
         logger.error(f"Unexpected error fetching transcript for video {video_id}: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to fetch transcript: {str(e)}")
+
+
+def process_videos_batch(videos, request_id: str):
+    """
+    Extract transcripts from multiple YouTube videos.
+    
+    Args:
+        videos: List of video URLs to process
+        request_id: Request ID for logging
+        
+    Returns:
+        Tuple of (combined_output, successful_count, failed_count)
+    """
+    from typing import List
+    
+    num_videos = len(videos)
+    logger.info(f"[Request {request_id}] Starting video transcript extraction ({num_videos} videos)")
+    
+    combined_output = []
+    successful_sources = 0
+    failed_sources = 0
+    
+    for idx, url in enumerate(videos, 1):
+        try:
+            logger.info(f"[Request {request_id}] Processing video {idx}/{num_videos}: {url}")
+            transcript = get_youtube_transcript(url)
+            combined_output.append(transcript)
+            successful_sources += 1
+            logger.info(f"[Request {request_id}] Successfully processed video: {url}")
+        except Exception as e:
+            failed_sources += 1
+            logger.error(f"[Request {request_id}] Failed to process video {url}: {str(e)}")
+    
+    return combined_output, successful_sources, failed_sources
