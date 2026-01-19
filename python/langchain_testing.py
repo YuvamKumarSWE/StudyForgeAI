@@ -1,29 +1,34 @@
 import getpass
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
 
+from langchain_core.tools import tool
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents import create_agent
 if "GOOGLE_API_KEY" not in os.environ:
     os.environ["GOOGLE_API_KEY"] = getpass.getpass("Enter your Google AI API key: ")
 
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-flash-latest",
-    temperature=0,
-    max_tokens=None,
-    timeout=None,
-    max_retries=2,
+@tool
+def get_weather(city: str) -> str:
+    """Get weather for a given city."""
+    return f"It's always sunny in {city}!"
+
+model = ChatGoogleGenerativeAI(model="gemini-flash-latest")
+
+agent = create_agent(
+    model=model,
+    tools=[get_weather],
+    system_prompt="You are a helpful assistant",
 )
 
-messages = [
-    (
-        "system",
-        "You are a helpful assistant that translates English to French. Translate the user sentence.",
-    ),
-    ("human", "I love programming."),
-]
-ai_msg = model.invoke(messages)
+# Run the agent
+res =  agent.invoke(
+    {"messages": [{"role": "user", "content": "what is the weather in sf"}]}
+)
 
-print(ai_msg)
+print(res.content)
+
+
 
 # model_with_search = model.bind_tools([{"google_search": {}}])
 # response = model_with_search.invoke("Who is in the group A in FIFA World Cup 2026?")

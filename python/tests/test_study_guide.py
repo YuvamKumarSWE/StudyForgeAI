@@ -8,7 +8,24 @@ import json
 # Add the parent directory to sys.path so 'app' can be imported
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.services.gemini import extract_unique_topics_with_text, make_study_guide, format_study_guide_as_markdown
+from app.agents.topics_agent import TopicsAgent
+from app.agents.study_guide_agent import StudyGuideAgent
+
+# Create agent instances for testing
+_topics_agent = TopicsAgent()
+_study_guide_agent = StudyGuideAgent()
+
+def extract_unique_topics_with_text(text: str) -> dict:
+    """Wrapper for testing"""
+    return _topics_agent._extract_topics(text)
+
+def make_study_guide(topics_data: dict, include_summary: bool = True, include_key_points: bool = True) -> dict:
+    """Wrapper for testing"""
+    return _study_guide_agent._make_study_guide(topics_data, include_summary, include_key_points)
+
+def format_study_guide_as_markdown(study_guide: dict) -> str:
+    """Wrapper for testing"""
+    return _study_guide_agent._format_as_markdown(study_guide)
 
 
 def test_with_sample_text():

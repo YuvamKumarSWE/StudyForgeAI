@@ -6,8 +6,8 @@ youtube-transcript-api
 python-multipart
 python-dotenv
 trafilatura
-google-genai
 requests
 langchain
+langchain-core
 langgraph
 langchain-google-genai

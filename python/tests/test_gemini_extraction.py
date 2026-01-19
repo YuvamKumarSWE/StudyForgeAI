@@ -11,7 +11,14 @@ import json
 # Add the parent directory to the path so we can import from services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.services.gemini import extract_unique_topics_with_text
+from app.agents.topics_agent import TopicsAgent
+
+# Create agent instance for testing
+_topics_agent = TopicsAgent()
+
+def extract_unique_topics_with_text(text: str) -> dict:
+    """Wrapper for testing"""
+    return _topics_agent._extract_topics(text)
 
 def test_extract_unique_topics():
     """Test the extract_unique_topics_with_text function with a sample text containing duplicates."""
