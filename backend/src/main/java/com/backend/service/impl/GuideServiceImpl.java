@@ -11,11 +11,13 @@ import com.backend.model.User;
 import com.backend.repository.GuideRepository;
 import com.backend.repository.UserRepository;
 import com.backend.service.GuideService;
+import com.backend.service.PythonServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +31,7 @@ public class GuideServiceImpl implements GuideService {
     private final GuideRepository guideRepository;
     private final GuideMapper guideMapper;
     private final UserRepository userRepository;
+    private final PythonServiceClient pythonServiceClient;
     
     @Override
     @Transactional(readOnly = true)
@@ -129,5 +132,13 @@ public class GuideServiceImpl implements GuideService {
             log.error("Error deleting guide", e);
             throw new DatabaseOperationException("Failed to delete guide", e);
         }
+    }
+
+    @Override
+    public GuideDTO generateAndSave(List<MultipartFile> pdfs, String sourcesJson, Long userId) {
+        log.info("Generating study guide via Python microservice");
+        String content = pythonServiceClient.generateStudyGuide(pdfs, sourcesJson);
+        GuideRequestDTO guideRequestDTO = new GuideRequestDTO(content, userId);
+        return save(guideRequestDTO);
     }
 }

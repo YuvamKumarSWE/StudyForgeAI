@@ -48,4 +48,11 @@ spring:
       enabled: true
     livereload:
       enabled: true
-  
+
+python:
+  service:
+    url: http://localhost:8000
+
+frontend:
+  url: http://localhost:5173
+

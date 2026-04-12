@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -82,6 +83,21 @@ public class GuideController {
                 HttpStatus.OK.value()
         );
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Generate a study guide via AI and save it")
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<GuideDTO>> generateGuide(
+            @RequestPart(value = "pdfs", required = false) List<MultipartFile> pdfs,
+            @RequestPart(value = "sources") String sourcesJson,
+            @RequestParam(value = "userId", required = false) Long userId) {
+        GuideDTO guide = guideService.generateAndSave(pdfs, sourcesJson, userId);
+        ApiResponse<GuideDTO> response = ApiResponse.success(
+                guide,
+                "Study guide generated and saved successfully",
+                HttpStatus.CREATED.value()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
 
